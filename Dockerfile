@@ -18,5 +18,5 @@ COPY . /app
 EXPOSE 8501
 
 # Streamlit must bind to 0.0.0.0 inside containers
-CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true", "--server.enableCORS=false", "--server.enableXsrfProtection=false", "--browser.gatherUsageStats=false"]
 
