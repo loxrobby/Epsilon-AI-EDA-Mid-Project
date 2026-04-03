@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: social-media-productivity-eda
     ports:
-      - "8501:8501"
+      - "8434:8501"
     environment:
       # Makes logs show up immediately
       - PYTHONUNBUFFERED=1
