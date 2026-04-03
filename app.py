@@ -369,19 +369,105 @@ Correlations are **Spearman** (robust to curvature); group comparisons use **Man
                     st.caption(f"Mann–Whitney (actual productivity: focus apps True vs False): U={stat:.0f}, p={p:.2e}")
 
     else:
-        st.title("Summary & future work")
+        st.title("Summary")
         st.markdown(
             """
-### Key takeaways
-- **Multicollinearity:** perceived and actual productivity are often highly correlated; check variance inflation before regression.
-- **Digital habits:** notifications and social time relate to stress and sleep-related variables — see correlation heatmap in the notebook.
-- **Calibration gap:** `perceived_minus_actual` is a useful target feature for “over/under-confidence” in productivity.
-- **Actionable EDA:** Section 5 in the notebook (and the **Actionable advice** page here) adds A1–A7 views: unplugging triad, offline time, gap drivers, focus apps, breaks on long days, job-type residuals, notification deciles.
+## Project Summary: Social Media vs Productivity
 
-### Next steps for ML
-- **Regression:** predict `stress_level`, `job_satisfaction_score`, or `days_feeling_burnout_per_month` from digital + work features; use regularization (Ridge/Lasso) if collinearity persists.
-- **Classification:** bin burnout or stress for stratified models; report ROC/PR and calibration.
-- **Validation:** train/test split, cross-validation, and inspect residuals vs key digital variables.
+---
+
+### 1. What Was Built
+
+| Deliverable | Role & Description |
+| :---------- | :----------------- |
+| **`data/social_media_vs_productivity.csv`** | 30,000 rows × 19 columns (simulated behavioral / survey-style data). |
+| **`preprocessing.py`** | Shared pipeline for the Streamlit app: loads CSV, parses booleans, median imputes numerics, applies IQR winsorization on selected columns, and engineers `age_group` and `perceived_minus_actual`. |
+| **`visualizations.py`** | All Plotly figures for Q1–Q10, A1–A7, plus helpers (correlation heatmap, etc.). |
+| **`app.py`** | Streamlit dashboard: Overview, Data Cleaning, Interactive EDA, Q&A Insights, Actionable advice, Summary. |
+| **`notebooks/eda_analysis.ipynb`** | Self-contained notebook: same-style cleaning, plots, stats, HTML exports under `output/graphs/`. |
+| **`scripts/generate_notebook_selfcontained_v3.py`** | Regenerates the notebook from `visualizations.py` snippets and structured cells. |
+| **Docker** | `Dockerfile`, `docker-compose.yml` (optional `docker-compose.app-only.yml`), `DOCKER_DEPLOY.md`, `.streamlit/config.toml`. |
+| **Tech Stack** | Python, pandas, numpy, scipy, plotly, statsmodels (LOESS), streamlit, sklearn (MICE in notebook where used). |
+
+---
+
+### 2. Data & Preprocessing (High Level)
+
+- **Dataset:** 30,000 rows, 19 columns.
+- **Data Cleaning:** Boolean columns cast as True/False; missing numerics filled via median (or MICE in notebook); IQR winsorization applied to limit extreme synthetic outliers (e.g., social time, notifications, coffee).
+- **Feature Engineering:** Created `perceived_minus_actual` (referred to as `productivity_gap` in advice views) and `age_group`.
+- **Important Note:** Outcomes are simulated. This work serves as an EDA and storytelling exercise, not as established medical or HR facts.
+
+---
+
+### 3. Notebook Structure (Typical Flow)
+
+1. **Setup:** Define paths, load CSV, inspect shape and missingness.
+2. **Cleaning & Engineering:** Handle missing values, outliers, and create new features.
+3. **Correlation Analysis:** Generate a correlation heatmap for numeric features.
+4. **Section 4 (Q1–Q10):** Portfolio questions with plots, statistical tests (Spearman, Mann–Whitney, Kruskal–Wallis), and HTML exports.
+5. **Section 5 (A1–A7):** Advice-oriented plots and statistical analysis.
+6. **Section 6 (Summary):** Consolidation of themes, limitations, and optional extensions.
+
+---
+
+### 4. Streamlit App Structure
+
+- **Overview:** GIF, introduction, full column table, grouped feature reference.
+- **Data Cleaning:** Explanation of the app’s median pipeline versus notebook options.
+- **Interactive EDA:** User-chosen axes and presets for custom exploration.
+- **Q&A Insights:** Expanders for Q1–Q10 containing text and charts.
+- **Actionable Advice:** Expanders for A1–A7; includes statistical captions (e.g., Mann–Whitney for focus app impact).
+- **Summary:** This page — consolidated project documentation, themes, limitations, and extensions.
+
+---
+
+### 5. Questions and How to Read the "Answers"
+
+#### Part A — Ten Portfolio Questions (Q1–Q10)
+
+| ID | Question | Visualization | How to read the "answer" |
+| :-- | :--------- | :------------- | :------------------------- |
+| **Q1** | Does spending more time on social media widen the productivity gap? | 2D density of social time vs gap + median gap by quartile. | If median gap rises in higher time quartiles, heavier use aligns with greater miscalibration. |
+| **Q2** | How do constant phone notifications impact daily stress levels? | Scatter: notifications vs stress, colored by social time; LOESS trend. | Stress tends to increase with notifications; steeper slopes for heavier social users indicate alerts act as a stress lever. |
+| **Q3** | Which platform is associated with later bedtimes? | Violin: `screen_time_before_sleep` by platform. | Higher medians/upper tails indicate more late-evening screen use, highlighting sleep-hygiene priorities. |
+| **Q4** | Do focus apps correlate with lower burnout? | Violin: burnout days by `uses_focus_apps`. | A lower median for focus app users suggests an association with fewer burnout days (not proof of causation). |
+| **Q5** | Which platforms are most popular across age groups? | Heatmaps: mean time and share within age group. | Shows where each cohort spends time and which platforms dominate specific age bands. |
+| **Q6** | How do sleep habits and coffee consumption combine to drive up stress? | Faceted scatter: sleep vs stress by coffee consumption tier. | "Short sleep + high coffee" often visualizes as a risky combination for elevated stress levels. |
+| **Q7** | Does enabling Digital Wellbeing associate with more offline time? | Violin: `weekly_offline_hours` by `has_digital_wellbeing_enabled`. | An upward shift indicates tools align with more offline time, while overlap shows it is not universal. |
+| **Q8** | Breaks and satisfaction — does the effect depend on workload? | Scatter: breaks vs job satisfaction, split by low/high work hours. | Breaks link to higher satisfaction, especially under high workloads (breaks act as protection). |
+| **Q9** | Is the productivity bias different by gender? | Left: perceived vs actual by gender; Right: gap distribution by gender. | Small shifts indicate subtle over/under-estimation differences across distributions. |
+| **Q10** | Do job types differ in social-media load and associated stress? | Grouped dual-axis bars: mean social time & stress by `job_type`. | Separates jobs where high social time is "normal" from those where time and stress rise together. |
+
+#### Part B — Seven Advice-Oriented Analyses (A1–A7)
+
+| ID | Question | Visualization | How to read the "answer" |
+| :-- | :--------- | :------------- | :------------------------- |
+| **A1** | Unplugging: how do screen time, coffee, and sleep relate? | Spearman 3×3 heatmap + scatter (screen vs sleep). | Negative screen–sleep correlation supports limiting late screens; guides cut-off style advice. |
+| **A2** | Do more weekly offline hours go with lower stress and burnout? | Two panels: offline vs stress, offline vs burnout; LOESS. | Negative slopes suggest offline time as a lever; steepness informs how much offline time matters. |
+| **A3** | Which habits most strongly relate to the productivity gap? | Horizontal bar chart: Spearman correlation (gap vs various habits). | Larger \|ρ\| indicates stronger monotonic association with the gap (which habits co-move with miscalibration). |
+| **A4** | Do focus-app users report higher actual productivity? | Violin: actual productivity by `uses_focus_apps`. | Group difference in a snapshot; pair with Mann–Whitney — association, not proof of efficacy. |
+| **A5** | For workdays ≥ 8h, how do breaks relate to burnout? | Scatter + LOESS: breaks vs burnout days. | Downward trend suggests more breaks are associated with fewer burnout days for long-hour workers. |
+| **A6** | Job type vs stress & satisfaction (accounting for hours) | Linear residuals of stress/satisfaction on work hours; boxplots by job. | Shows which jobs sit above/below expected baseline stress/satisfaction, providing industry context. |
+| **A7** | Where do notifications show the steepest climb in stress? | Deciles: mean stress & productivity vs mean notifications in bin. | The steepest segment indicates a "watch zone" for notification loads and alert budgets. |
+
+---
+
+### 6. Cross-Cutting Conclusions
+
+- **Calibration:** The `perceived_minus_actual` metric serves as the primary lens for comparing self-assessment against simulated truth.
+- **Digital Load:** Notifications and evening screen time consistently co-move with stress and sleep patterns across the visualizations.
+- **Possible Levers (Hypotheses):** Offline time, structured breaks (especially on long workdays), and strict notification hygiene.
+- **Heterogeneity:** Job, age, platform, and gender splits matter significantly. There is no single global rule that applies to all demographics.
+- **Limitations:** The data is simulated. Correlations, LOESS, and rank tests describe patterns, but causality requires experimental design or longitudinal data.
+
+---
+
+### 7. Optional Next Steps
+
+- **Qualitative Follow-up:** Conduct user interviews or surveys to add context to the behavioral data.
+- **Field Trials:** Implement and measure specific interventions, such as notification batching or evening screen curfews.
+- **Modeling:** If predictive models are added, ensure proper data splits, cross-validation, regularization, and calibration—especially given the inherent correlation between perceived and actual productivity.
             """
         )
 

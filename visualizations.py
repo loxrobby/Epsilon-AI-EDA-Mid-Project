@@ -846,7 +846,18 @@ def plot_a7_notification_threshold(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-# Named map for Streamlit / notebook
+# Advice plots map (must appear immediately after A1–A7 so notebook extraction stops here)
+ADVICE_PLOTS = {
+    "A1": plot_a1_sleep_screen_coffee,
+    "A2": plot_a2_offline_stress_burnout,
+    "A3": plot_a3_gap_drivers,
+    "A4": plot_a4_focus_apps_actual_productivity,
+    "A5": plot_a5_breaks_burnout_long_hours,
+    "A6": plot_a6_job_type_residualized,
+    "A7": plot_a7_notification_threshold,
+}
+
+# Q1–Q10 maps for Streamlit (after advice block; not embedded in notebook self-contained advice cell)
 QUESTION_PLOTS = {
     "Q1": plot_q1_3d_scatter,
     "Q2": plot_q2_notifications_stress,
@@ -858,14 +869,4 @@ QUESTION_PLOTS = {
     "Q8": plot_q8_work_breaks_satisfaction,
     "Q9": plot_q9_gender_productivity,
     "Q10": plot_q10_job_type_habits_stress,
-}
-
-ADVICE_PLOTS = {
-    "A1": plot_a1_sleep_screen_coffee,
-    "A2": plot_a2_offline_stress_burnout,
-    "A3": plot_a3_gap_drivers,
-    "A4": plot_a4_focus_apps_actual_productivity,
-    "A5": plot_a5_breaks_burnout_long_hours,
-    "A6": plot_a6_job_type_residualized,
-    "A7": plot_a7_notification_threshold,
 }
