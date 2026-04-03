@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from scipy import stats as scipy_stats
 
 BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR) not in sys.path:
@@ -23,6 +24,11 @@ st.set_page_config(
     page_title="Social Media vs Productivity EDA",
     layout="wide",
     initial_sidebar_state="expanded",
+)
+
+# Header GIF (Giphy) — shown at top of Overview
+HEADER_GIF_URL = (
+    "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExYnNtdThtODV0NWEwZHM2bXA4MW5nN2NvMmRybXN5b3I4eGl1dWd1OSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/UiUcePrcsgS5Qp0DUj/giphy.gif"
 )
 
 
@@ -46,6 +52,7 @@ def main() -> None:
             "Data Cleaning",
             "Interactive EDA",
             "Q&A Insights",
+            "Actionable advice",
             "Summary",
         ],
     )
@@ -61,6 +68,9 @@ def main() -> None:
         return
 
     if page == "Overview":
+        _c1, _c2, _c3 = st.columns([1, 2, 1])
+        with _c2:
+            st.image(HEADER_GIF_URL, width=480)
         st.title("Social Media vs Productivity")
         st.markdown(
             """
@@ -72,13 +82,40 @@ and both *perceived* and *actual* productivity — as a portfolio EDA piece with
 Python pipeline (`preprocessing.py`) and reusable Plotly figures (`visualizations.py`).
             """
         )
-        st.subheader("Features")
+        st.subheader("🧾 Columns & Feature Info")
+        st.markdown(
+            """
+| Column Name | Description |
+|-------------|-------------|
+| `age` | Age of the individual (18–65 years) |
+| `gender` | Gender identity: Male, Female, or Other |
+| `job_type` | Employment sector or status (IT, Education, Student, etc.) |
+| `daily_social_media_time` | Average daily time spent on social media (hours) |
+| `social_platform_preference` | Most-used social platform (Instagram, TikTok, Telegram, etc.) |
+| `number_of_notifications` | Number of mobile/social notifications per day |
+| `work_hours_per_day` | Average hours worked each day |
+| `perceived_productivity_score` | Self-rated productivity score (scale: 0–10) |
+| `actual_productivity_score` | Simulated ground-truth productivity score (scale: 0–10) |
+| `stress_level` | Current stress level (scale: 1–10) |
+| `sleep_hours` | Average hours of sleep per night |
+| `screen_time_before_sleep` | Time spent on screens before sleeping (hours) |
+| `breaks_during_work` | Number of breaks taken during work hours |
+| `uses_focus_apps` | Whether the user uses digital focus apps (True/False) |
+| `has_digital_wellbeing_enabled` | Whether Digital Wellbeing is activated (True/False) |
+| `coffee_consumption_per_day` | Number of coffee cups consumed per day |
+| `days_feeling_burnout_per_month` | Number of burnout days reported per month |
+| `weekly_offline_hours` | Total hours spent offline each week (excluding sleep) |
+| `job_satisfaction_score` | Satisfaction with job/life responsibilities (scale: 0–10) |
+            """
+        )
+        st.subheader("Feature groups (quick reference)")
         st.markdown(
             """
 | Area | Columns |
 |------|---------|
 | Demographics | `age`, `gender`, `job_type`, `age_group` (engineered) |
 | Digital | `daily_social_media_time`, `social_platform_preference`, `number_of_notifications`, `screen_time_before_sleep`, `uses_focus_apps`, `has_digital_wellbeing_enabled`, `weekly_offline_hours` |
+| Advice EDA | Seven plots (A1–A7) on sleep/unplugging, offline time, productivity gap drivers, focus apps, breaks under long hours, job-type residuals, notification deciles — see **Actionable advice** |
 | Work | `work_hours_per_day`, `breaks_during_work` |
 | Outcomes | `perceived_productivity_score`, `actual_productivity_score`, `perceived_minus_actual`, `stress_level`, `sleep_hours`, `coffee_consumption_per_day`, `days_feeling_burnout_per_month`, `job_satisfaction_score` |
             """
@@ -279,6 +316,58 @@ Python pipeline (`preprocessing.py`) and reusable Plotly figures (`visualization
                 fig = fn(df)
                 st.plotly_chart(fig, width="stretch")
 
+    elif page == "Actionable advice":
+        st.title("Actionable EDA — advice-oriented questions")
+        st.markdown(
+            """
+These seven views mirror the Cursor brief: **unplugging**, **offline time**, **productivity gap drivers**,
+**focus apps**, **breaks on long days**, **job type (controlling work hours)**, and **notification thresholds**.
+Correlations are **Spearman** (robust to curvature); group comparisons use **Mann–Whitney** or **Kruskal–Wallis** where noted.
+            """
+        )
+        advice_text = {
+            "A1": (
+                "**Unplugging:** The heatmap summarizes how *screen time before sleep*, *coffee*, and *sleep hours* move together. "
+                "Strong negative ρ between screen time and sleep supports a concrete rule: less pre-bed screen → more sleep in this dataset. "
+                "Use the scatter for visual curvature; pair with cut-off experiments in real life (e.g. screen curfew + caffeine cap)."
+            ),
+            "A2": (
+                "**Offline hours:** LOESS lines show whether more weekly offline time tracks with lower stress and fewer burnout days. "
+                "If both slopes are negative, offline time is a candidate lever; magnitude (not just sign) matters for “how many hours” advice."
+            ),
+            "A3": (
+                "**Productivity gap:** Bars rank |Spearman ρ| between the gap *(perceived − actual)* and habit variables. "
+                "Larger |ρ| means a stronger monotonic link — useful for warning which distractions coincide with *miscalibration*, not causation."
+            ),
+            "A4": (
+                "**Focus apps:** Violins compare *actual* productivity for users with vs without focus apps. "
+                "Pair the plot with a Mann–Whitney test in the notebook; small median shifts need large samples — interpret as association, not proof of efficacy."
+            ),
+            "A5": (
+                "**Long workdays (≥8 h):** Scatter + LOESS relate *breaks* to *burnout days*. "
+                "A downward LOESS suggests more breaks associate with fewer burnout days among long-hour workers — useful for “minimum breaks” messaging."
+            ),
+            "A6": (
+                "**Job type (holding hours):** Stress and satisfaction are **residualized** vs `work_hours_per_day` (linear control), then compared by `job_type`. "
+                "Boxes show which industries sit above/below the stress or satisfaction expected from hours alone."
+            ),
+            "A7": (
+                "**Notification threshold:** Decile curves show where mean stress climbs and mean *actual* productivity falls as notifications increase. "
+                "Look for the steepest segment — that band is a practical “watch zone” for alert budgets (still associative, not causal)."
+            ),
+        }
+        for key in [f"A{i}" for i in range(1, 8)]:
+            with st.expander(f"{key}: insight", expanded=(key == "A1")):
+                st.markdown(advice_text[key])
+                fn = viz.ADVICE_PLOTS[key]
+                fig = fn(df)
+                st.plotly_chart(fig, width="stretch")
+                if key == "A4":
+                    u = df.loc[df["uses_focus_apps"], "actual_productivity_score"]
+                    v = df.loc[~df["uses_focus_apps"], "actual_productivity_score"]
+                    stat, p = scipy_stats.mannwhitneyu(u, v, alternative="two-sided")
+                    st.caption(f"Mann–Whitney (actual productivity: focus apps True vs False): U={stat:.0f}, p={p:.2e}")
+
     else:
         st.title("Summary & future work")
         st.markdown(
@@ -287,6 +376,7 @@ Python pipeline (`preprocessing.py`) and reusable Plotly figures (`visualization
 - **Multicollinearity:** perceived and actual productivity are often highly correlated; check variance inflation before regression.
 - **Digital habits:** notifications and social time relate to stress and sleep-related variables — see correlation heatmap in the notebook.
 - **Calibration gap:** `perceived_minus_actual` is a useful target feature for “over/under-confidence” in productivity.
+- **Actionable EDA:** Section 5 in the notebook (and the **Actionable advice** page here) adds A1–A7 views: unplugging triad, offline time, gap drivers, focus apps, breaks on long days, job-type residuals, notification deciles.
 
 ### Next steps for ML
 - **Regression:** predict `stress_level`, `job_satisfaction_score`, or `days_feeling_burnout_per_month` from digital + work features; use regularization (Ridge/Lasso) if collinearity persists.
