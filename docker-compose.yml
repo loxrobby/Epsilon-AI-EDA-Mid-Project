@@ -1,0 +1,22 @@
+services:
+  social-media-productivity-eda:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: social-media-productivity-eda
+    ports:
+      - "8501:8501"
+    environment:
+      # Makes logs show up immediately
+      - PYTHONUNBUFFERED=1
+      # Optional: Streamlit server settings (also set in Dockerfile CMD)
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    # Persist Streamlit cache/state across restarts (optional)
+    volumes:
+      - streamlit_data:/root/.streamlit
+    restart: unless-stopped
+
+volumes:
+  streamlit_data:
+
