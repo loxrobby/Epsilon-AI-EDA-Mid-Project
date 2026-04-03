@@ -2,3 +2,6 @@
 /scripts
 /visualizations.py
 /__pycache__
+
+# Local-only notes (optional)
+DOCKER_DEPLOY.md

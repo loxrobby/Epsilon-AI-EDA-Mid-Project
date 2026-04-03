@@ -6,6 +6,8 @@ port = 8501
 # Reverse-proxy friendly defaults (fixes “infinite loading” in many hosts)
 enableCORS = false
 enableXsrfProtection = false
+# Some proxies mishandle permessage-deflate; disabling avoids WS handshake failures
+enableWebsocketCompression = false
 
 [browser]
 gatherUsageStats = false
