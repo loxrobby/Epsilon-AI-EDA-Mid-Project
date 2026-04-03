@@ -131,6 +131,16 @@ Python pipeline (`preprocessing.py`) and reusable Plotly figures (`visualization
 - **Features:** `age_group` bins, `perceived_minus_actual` gap.
             """
         )
+        st.subheader("Why we use median imputation")
+        st.markdown(
+            """
+Deleting rows with missing values would throw away too much valuable data and could bias our results if certain groups skipped questions. We also cannot simply drop the affected columns, because they contain the core outcomes we want to analyze, such as stress and productivity.
+
+By filling in the missing values instead, we maintain our full dataset of **30,000 rows** and prevent errors in our visualizations and statistical tests. We specifically use the **median** to fill these gaps because it is robust against extreme outliers and safer for skewed survey data than the standard average.
+
+Ultimately, this straightforward approach ensures our exploratory data analysis remains **consistent**, **fast**, and **reliable** without sacrificing important information.
+            """
+        )
         c1, c2 = st.columns(2)
         with c1:
             st.caption("Raw (sample)")
@@ -258,59 +268,50 @@ Python pipeline (`preprocessing.py`) and reusable Plotly figures (`visualization
         st.title("Ten EDA questions")
         qa_text = {
             "Q1": (
-                "The 2D density plot shows where most users cluster in (social media time, productivity gap) space; "
-                "the red line overlays the median perceived-minus-actual gap by time quartile. If that line drifts "
-                "away from zero at higher usage levels, it suggests heavier users are increasingly miscalibrated "
-                "about how productive they really are."
+                "**What this graph means:** It compares the gap between *felt* and *measured* productivity across four levels of daily social media time (low to high). "
+                "If the boxes drift upward to the right, people who use social media more also tend to rate themselves as more productive than the data suggests. "
+                "Treat it as a warning sign about self-perception, not proof that social media caused the gap."
             ),
             "Q2": (
-                "This view plots notifications vs stress, colored by social-media-time quartiles, with a LOESS line "
-                "summarizing the trend. Stress generally rises with notifications, and the slope is often steeper "
-                "for heavy users, supporting the idea that managing alerts is a practical lever for reducing stress."
+                "**What this graph means:** Each point is a group of people who get a similar number of notifications; the height is their average stress. "
+                "If the line climbs from left to right, heavier notification load goes with higher stress on average—useful when deciding whether to reduce pings. "
+                "It describes a trend in the data, not a rule for every individual."
             ),
             "Q3": (
-                "Platform-level violins compare the distributions of screen time before sleep. Platforms with higher "
-                "medians and fatter upper tails are more likely to keep users up late, making them prime candidates "
-                "for platform-specific sleep-hygiene advice."
+                "**What this graph means:** Longer bars are platforms where users *typically* spend more time on a screen before bed. "
+                "That highlights which apps are most tied to late-night scrolling when you talk about sleep—not who is “good” or “bad.”"
             ),
             "Q4": (
-                "Burnout-day distributions for focus-app users vs non-users let you see whether these tools are "
-                "associated with real-world relief. Slightly lower medians and tighter violins for focus-app users "
-                "suggest they may form one useful component of a broader burnout-management strategy."
+                "**What this graph means:** It compares how many heavy-burnout days people report, with vs without focus apps. "
+                "If the focus-app side is lower, those users report fewer bad days in this dataset. That is an association only; it does not prove the app caused the difference."
             ),
             "Q5": (
-                "The left heatmap shows mean daily time by age group and platform, while the right is a 100% "
-                "normalized popularity view (share of each platform within age group). Together, they reveal which "
-                "platforms dominate within each cohort and where high time and high share coincide."
+                "**What this graph means:** The left panel is average hours on each platform by age group. The right panel is each platform’s *share* of users inside that age group (each age row adds to 100%). "
+                "Together they show where each generation spends time and which apps dominate that age band."
             ),
             "Q6": (
-                "Faceted scatter plots show sleep vs stress in Low, Medium, and High coffee panels. Across panels, "
-                "less sleep generally maps to higher stress, but the pattern is often steeper in the high-coffee "
-                "facet, hinting that heavy caffeine plus short sleep is a particularly stressful combination."
+                "**What this graph means:** Every dot is one person: sleep across the bottom, stress up the side, and color shows coffee intake. "
+                "You will usually see more stress toward the left (less sleep). Color shows whether heavy coffee lines up with that short-sleep, high-stress corner."
             ),
             "Q7": (
-                "Violin plots compare weekly offline hours for users with Digital Wellbeing enabled versus disabled. "
-                "A modest shift toward higher offline time for the enabled group, with substantial overlap, suggests "
-                "these controls help mainly when users are already motivated to set boundaries."
+                "**What this graph means:** The taller bar is the group that reports more *offline hours per week* on average—Wellbeing off vs on. "
+                "Use it to see whether turning wellbeing tools on goes with spending more real time away from screens in this data."
             ),
             "Q8": (
-                "Workload-stratified scatter (plus LOESS lines) shows how breaks relate to job satisfaction for low "
-                "vs high work hours. Breaks appear especially protective under high workload, where moving from few "
-                "to moderate breaks is often associated with a clear lift in satisfaction."
+                "**What this graph means:** Two lines show how average job satisfaction changes as breaks increase—blue for shorter workdays, orange for longer workdays. "
+                "If the orange line rises more as breaks go up, taking breaks may matter most when the workday is already long."
             ),
             "Q9": (
-                "The left panel plots perceived vs actual productivity by gender, while the right panel shows the "
-                "distribution of the perceived-minus-actual gap. Small shifts in these distributions point to subtle "
-                "group-level tendencies toward over- or under-estimation in self-assessed productivity."
+                "**What this graph means:** Each box is the gap between *felt* and *measured* productivity for one gender. "
+                "A higher box means that group more often thinks they are more productive than the score suggests—compare the middle of each box, not the stray dots."
             ),
             "Q10": (
-                "Dual-axis bars compare mean daily social-media time and mean stress by job type, with hover text "
-                "exposing within-job ρ(time, stress). This helps distinguish roles where high engagement is part of "
-                "the job but not especially toxic from those where high time and high stress clearly travel together."
+                "**What this graph means:** For each job, blue is average social media time and orange is average stress; hover shows how strongly time and stress move together *within* that job. "
+                "Use it to spot jobs where long social time is common but stress stays moderate, versus jobs where both run high together."
             ),
         }
         for key in [f"Q{i}" for i in range(1, 11)]:
-            with st.expander(f"{key}: insight", expanded=(key == "Q1")):
+            with st.expander(f"{key}: what this graph means", expanded=(key == "Q1")):
                 st.markdown(qa_text[key])
                 fn = viz.QUESTION_PLOTS[key]
                 fig = fn(df)
@@ -320,44 +321,42 @@ Python pipeline (`preprocessing.py`) and reusable Plotly figures (`visualization
         st.title("Actionable EDA — advice-oriented questions")
         st.markdown(
             """
-These seven views mirror the Cursor brief: **unplugging**, **offline time**, **productivity gap drivers**,
-**focus apps**, **breaks on long days**, **job type (controlling work hours)**, and **notification thresholds**.
-Correlations are **Spearman** (robust to curvature); group comparisons use **Mann–Whitney** or **Kruskal–Wallis** where noted.
+Seven practical views (sleep, unplugged time, productivity gap, focus apps, long workdays, job type, notifications).
+Below, **what this graph means** is written in simple English—the notebook uses the same wording after each chart.
             """
         )
         advice_text = {
             "A1": (
-                "**Unplugging:** The heatmap summarizes how *screen time before sleep*, *coffee*, and *sleep hours* move together. "
-                "Strong negative ρ between screen time and sleep supports a concrete rule: less pre-bed screen → more sleep in this dataset. "
-                "Use the scatter for visual curvature; pair with cut-off experiments in real life (e.g. screen curfew + caffeine cap)."
+                "**What this graph means:** The small grid shows how evening screen time, coffee, and sleep move together; the scatter plots screen time against sleep. "
+                "If late screens and short sleep show up together, a reasonable takeaway is to try less phone before bed and to notice caffeine—patterns in simulated data, not medical advice."
             ),
             "A2": (
-                "**Offline hours:** LOESS lines show whether more weekly offline time tracks with lower stress and fewer burnout days. "
-                "If both slopes are negative, offline time is a candidate lever; magnitude (not just sign) matters for “how many hours” advice."
+                "**What this graph means:** The lines show whether people who spend more hours offline also report lower stress and fewer burnout days. "
+                "If the lines slope downward, more unplugged time goes with calmer outcomes on average in this dataset."
             ),
             "A3": (
-                "**Productivity gap:** Bars rank |Spearman ρ| between the gap *(perceived − actual)* and habit variables. "
-                "Larger |ρ| means a stronger monotonic link — useful for warning which distractions coincide with *miscalibration*, not causation."
+                "**What this graph means:** Longer bars mark habits that line up most strongly with the gap between *felt* and *measured* productivity. "
+                "Use it to see what to discuss first when someone feels productive but the numbers disagree—it shows association, not proof one habit caused the gap."
             ),
             "A4": (
-                "**Focus apps:** Violins compare *actual* productivity for users with vs without focus apps. "
-                "Pair the plot with a Mann–Whitney test in the notebook; small median shifts need large samples — interpret as association, not proof of efficacy."
+                "**What this graph means:** The shapes compare *actual* productivity scores for people who use focus apps vs those who do not. "
+                "If one sits higher, that group scores better on average. The statistic under the chart only says whether the gap is likely noise; it does not prove the app works for everyone."
             ),
             "A5": (
-                "**Long workdays (≥8 h):** Scatter + LOESS relate *breaks* to *burnout days*. "
-                "A downward LOESS suggests more breaks associate with fewer burnout days among long-hour workers — useful for “minimum breaks” messaging."
+                "**What this graph means:** Only people working 8+ hours: burnout days versus number of breaks, with a trend line. "
+                "If the line slopes down, more breaks go with fewer bad burnout days among long workdays—a useful nudge for breaks, not a health diagnosis."
             ),
             "A6": (
-                "**Job type (holding hours):** Stress and satisfaction are **residualized** vs `work_hours_per_day` (linear control), then compared by `job_type`. "
-                "Boxes show which industries sit above/below the stress or satisfaction expected from hours alone."
+                "**What this graph means:** After a simple adjustment for how long people work, the boxes show extra stress and job satisfaction by industry. "
+                "Some jobs look more stressful than their hours alone would suggest; others look happier—helpful when comparing roles, not individuals."
             ),
             "A7": (
-                "**Notification threshold:** Decile curves show where mean stress climbs and mean *actual* productivity falls as notifications increase. "
-                "Look for the steepest segment — that band is a practical “watch zone” for alert budgets (still associative, not causal)."
+                "**What this graph means:** The lines show average stress and average *real* productivity across notification bands. "
+                "Where the slope is steepest, cutting notifications might help the most on average; it is still a population pattern, not one cutoff for every person."
             ),
         }
         for key in [f"A{i}" for i in range(1, 8)]:
-            with st.expander(f"{key}: insight", expanded=(key == "A1")):
+            with st.expander(f"{key}: what this graph means", expanded=(key == "A1")):
                 st.markdown(advice_text[key])
                 fn = viz.ADVICE_PLOTS[key]
                 fig = fn(df)

@@ -51,8 +51,21 @@ def plot_correlation_heatmap(df: pd.DataFrame) -> go.Figure:
 
 def plot_univariate_histogram(df: pd.DataFrame, column: str, title: str | None = None) -> go.Figure:
     ttl = title or f"Distribution of {column}"
-    fig = px.histogram(df, x=column, nbins=40, title=ttl, template=TEMPLATE)
-    fig.update_layout(bargap=0.05)
+    fig = px.histogram(
+        df,
+        x=column,
+        nbins=40,
+        title=ttl,
+        template=TEMPLATE,
+        color_discrete_sequence=["#1d4ed8"],
+    )
+    fig.update_traces(marker_line_width=1.5, marker_line_color="white", opacity=0.92)
+    fig.update_layout(
+        bargap=0.06,
+        xaxis_title=str(column).replace("_", " "),
+        yaxis_title="Count",
+        showlegend=False,
+    )
     return fig
 
 
@@ -66,160 +79,108 @@ def plot_univariate_bar_categorical(df: pd.DataFrame, column: str, title: str | 
 
 
 def plot_q1_3d_scatter(df: pd.DataFrame) -> go.Figure:
-    # 2D density plot to avoid overplotting at 30k rows.
-    d = _sample_df(df, n=20000).copy()
-    if "perceived_minus_actual" not in d.columns:
-        d["perceived_minus_actual"] = (
-            d["perceived_productivity_score"] - d["actual_productivity_score"]
+    """Box plot: gap by social-media time quartile (readable vs 2D density)."""
+    d = df.copy()
+    if "time_quartile" not in d.columns:
+        d["time_quartile"] = pd.qcut(
+            d["daily_social_media_time"],
+            q=4,
+            labels=["Low", "Mid-Low", "Mid-High", "High"],
+            duplicates="drop",
         )
-
-    d["gap"] = d["perceived_minus_actual"].astype(float)
-
-    fig = go.Figure(
-        data=go.Histogram2d(
-            x=d["daily_social_media_time"].astype(float),
-            y=d["gap"],
-            nbinsx=45,
-            nbinsy=45,
-            colorscale="Viridis",
-            colorbar=dict(title="count"),
-            hovertemplate="Time: %{x:.2f}h<br>Gap: %{y:.2f}<br>Count: %{z}<extra></extra>",
-        )
-    )
-
-    # Overlay median gap by time quartile.
-    d["time_quartile"] = pd.qcut(
-        d["daily_social_media_time"],
-        q=4,
-        labels=["Low", "Mid-Low", "Mid-High", "High"],
-        duplicates="drop",
-    )
-    med = (
-        d.groupby("time_quartile", observed=False)
-        .agg(
-            x=("daily_social_media_time", "mean"),
-            y=("perceived_minus_actual", "median"),
-        )
-        .reset_index()
-    )
-    med["time_quartile"] = pd.Categorical(
-        med["time_quartile"],
-        categories=["Low", "Mid-Low", "Mid-High", "High"],
-        ordered=True,
-    )
-    med = med.sort_values("time_quartile")
-
-    fig.add_trace(
-        go.Scatter(
-            x=med["x"],
-            y=med["y"],
-            mode="lines+markers",
-            line=dict(color="crimson", width=3),
-            marker=dict(size=10),
-            name="Median gap by time quartile",
-        )
-    )
-
-    fig.update_layout(
-        template=TEMPLATE,
+    fig = px.box(
+        d,
+        x="time_quartile",
+        y="perceived_minus_actual",
         title="Q1: Does spending more time on social media widen the gap between how productive we feel and how productive we actually are?",
-        height=640,
-        xaxis_title="Daily social media time (hours)",
-        yaxis_title="Perceived minus actual productivity (gap)",
-        bargap=0.05,
+        template=TEMPLATE,
+        color="time_quartile",
+        color_discrete_sequence=COLOR_SEQ,
+        category_orders={"time_quartile": ["Low", "Mid-Low", "Mid-High", "High"]},
+        points="suspectedoutliers",
+    )
+    fig.update_layout(
+        xaxis_title="Daily social media time (quartile)",
+        yaxis_title="Perceived − actual productivity",
+        showlegend=False,
+        height=560,
     )
     return fig
 
 
 def plot_q2_notifications_stress(df: pd.DataFrame) -> go.Figure:
-    d = _sample_df(df, n=12000).copy()
-    d["notif"] = d["number_of_notifications"].astype(float)
-    d["stress"] = d["stress_level"].astype(float)
-    d["time_bin"] = pd.qcut(
-        d["daily_social_media_time"],
-        q=4,
-        labels=["Low time", "Mid-Low", "Mid-High", "High time"],
-        duplicates="drop",
+    """Mean stress vs mean notifications by decile (simple trend)."""
+    d = df[["number_of_notifications", "stress_level"]].dropna()
+    d["bin"] = pd.qcut(d["number_of_notifications"], q=10, duplicates="drop")
+    agg = (
+        d.groupby("bin", observed=True)
+        .agg(
+            mean_notif=("number_of_notifications", "mean"),
+            mean_stress=("stress_level", "mean"),
+        )
+        .reset_index()
     )
-
-    d_sorted = d.sort_values("notif")
-    x = d_sorted["notif"].to_numpy(dtype=float)
-    y = d_sorted["stress"].to_numpy(dtype=float)
-    smoothed = lowess(y, x, frac=0.18, return_sorted=True)
-
-    r, p = stats.spearmanr(x, y, nan_policy="omit")
-    fig = px.scatter(
-        d_sorted,
-        x="notif",
-        y="stress",
-        color="time_bin",
-        opacity=0.55,
+    fig = px.line(
+        agg,
+        x="mean_notif",
+        y="mean_stress",
+        markers=True,
         title="Q2: How do constant phone notifications impact our daily stress levels?",
         template=TEMPLATE,
-        color_discrete_sequence=COLOR_SEQ,
     )
-    fig.add_trace(
-        go.Scatter(
-            x=smoothed[:, 0],
-            y=smoothed[:, 1],
-            mode="lines",
-            line=dict(color="black", width=3),
-            name="LOESS smooth",
-        )
-    )
+    fig.update_traces(line=dict(width=3), marker=dict(size=10))
     fig.update_layout(
-        xaxis_title="Number of notifications (daily)",
-        yaxis_title="Stress level",
-        height=520,
-        legend_title_text="Social media time",
-    )
-    fig.add_annotation(
-        text=f"Spearman ρ={r:.3f}<br>p={p:.2e}",
-        xref="paper",
-        yref="paper",
-        x=0.01,
-        y=0.99,
-        showarrow=False,
-        align="left",
-        font=dict(size=12),
-    )
-    return fig
-
-
-def plot_q3_platform_screen_time(df: pd.DataFrame) -> go.Figure:
-    fig = px.violin(
-        df,
-        x="social_platform_preference",
-        y="screen_time_before_sleep",
-        box=True,
-        points=False,
-        color="social_platform_preference",
-        template=TEMPLATE,
-        title="Q3: Which platform is associated with later bedtime (screen time before sleep)?",
-        color_discrete_sequence=COLOR_SEQ,
-    )
-    fig.update_layout(
-        xaxis_tickangle=-30,
-        yaxis_title="Screen time before sleep (hours)",
+        xaxis_title="Mean notifications (decile group)",
+        yaxis_title="Mean stress (1–10)",
         showlegend=False,
         height=520,
     )
     return fig
 
 
+def plot_q3_platform_screen_time(df: pd.DataFrame) -> go.Figure:
+    med = (
+        df.groupby("social_platform_preference", observed=True)["screen_time_before_sleep"]
+        .median()
+        .sort_values(ascending=True)
+    )
+    fig = px.bar(
+        x=med.values,
+        y=med.index.astype(str),
+        orientation="h",
+        title="Q3: Which platform is associated with later bedtime (screen time before sleep)?",
+        template=TEMPLATE,
+        text=med.values.round(2),
+    )
+    fig.update_traces(marker_color="#1d4ed8")
+    fig.update_layout(
+        xaxis_title="Median hours before sleep",
+        yaxis_title="Platform",
+        height=520,
+    )
+    return fig
+
+
 def plot_q4_focus_apps_burnout(df: pd.DataFrame) -> go.Figure:
-    fig = px.violin(
-        df,
-        x="uses_focus_apps",
+    d = df.assign(
+        focus_label=df["uses_focus_apps"].map({True: "Uses focus apps", False: "No focus apps"})
+    )
+    fig = px.box(
+        d,
+        x="focus_label",
         y="days_feeling_burnout_per_month",
-        box=True,
-        points=False,
         title="Q4: Do focus apps correlate with lower burnout (days/month)?",
         template=TEMPLATE,
-        color="uses_focus_apps",
-        color_discrete_sequence=COLOR_SEQ,
+        color="focus_label",
+        color_discrete_sequence=["#94a3b8", "#2563eb"],
+        points="suspectedoutliers",
     )
-    fig.update_layout(showlegend=False, yaxis_title="Days feeling burnout / month", height=520)
+    fig.update_layout(
+        showlegend=False,
+        yaxis_title="Days feeling burnout / month",
+        height=520,
+        xaxis_title="",
+    )
     return fig
 
 
@@ -283,167 +244,117 @@ def plot_q5_age_platform_usage(df: pd.DataFrame) -> go.Figure:
 
 
 def plot_q6_sleep_coffee_stress_3d(df: pd.DataFrame) -> go.Figure:
-    d = _sample_df(df, n=20000).copy()
-    d["coffee_bin"] = pd.qcut(
-        d["coffee_consumption_per_day"],
-        q=3,
-        labels=["Low coffee", "Medium coffee", "High coffee"],
-        duplicates="drop",
-    )
-
+    d = _sample_df(df, n=8000)
     fig = px.scatter(
         d,
         x="sleep_hours",
         y="stress_level",
-        facet_col="coffee_bin",
-        facet_col_wrap=3,
-        color="stress_level",
+        color="coffee_consumption_per_day",
         color_continuous_scale="Viridis",
-        opacity=0.45,
-        template=TEMPLATE,
         title="Q6: How do our sleep habits and coffee consumption combine to drive up stress?",
+        template=TEMPLATE,
+        opacity=0.55,
     )
-    fig.update_traces(marker=dict(size=5), showlegend=False)
-    fig.update_layout(height=560)
-    fig.for_each_annotation(
-        lambda a: a.update(text=str(a.text).split("=")[-1].strip())
-        if a.text is not None
-        else None
+    fig.update_traces(marker=dict(size=7))
+    fig.update_layout(
+        xaxis_title="Sleep hours",
+        yaxis_title="Stress level (1–10)",
+        coloraxis_colorbar=dict(title="Coffee / day"),
+        height=560,
     )
-    fig.update_xaxes(title_text="Sleep hours")
-    fig.update_yaxes(title_text="Stress level")
     return fig
 
 
 def plot_q7_digital_wellbeing_offline(df: pd.DataFrame) -> go.Figure:
-    fig = px.violin(
-        df,
-        x="has_digital_wellbeing_enabled",
-        y="weekly_offline_hours",
-        box=True,
-        points=False,
-        color="has_digital_wellbeing_enabled",
-        template=TEMPLATE,
+    med = df.groupby("has_digital_wellbeing_enabled")["weekly_offline_hours"].median()
+    labels = ["Digital Wellbeing OFF", "Digital Wellbeing ON"]
+    fig = px.bar(
+        x=labels,
+        y=[float(med[False]), float(med[True])],
         title="Q7: Does enabling Digital Wellbeing associate with more offline time?",
-        color_discrete_sequence=COLOR_SEQ,
+        template=TEMPLATE,
+        color=labels,
+        color_discrete_sequence=["#94a3b8", "#059669"],
+        text=[round(float(med[False]), 2), round(float(med[True]), 2)],
     )
-    fig.update_layout(showlegend=False, yaxis_title="Weekly offline hours", height=520)
+    fig.update_traces(textposition="outside")
+    fig.update_layout(
+        xaxis_title="",
+        yaxis_title="Median offline hours / week",
+        showlegend=False,
+        height=480,
+    )
     return fig
 
 
 def plot_q8_work_breaks_satisfaction(df: pd.DataFrame) -> go.Figure:
-    d = _sample_df(df, n=8000).copy()
-    cutoff = d["work_hours_per_day"].median()
-    d["workload"] = np.where(
-        d["work_hours_per_day"] >= cutoff, "High work hours", "Low work hours"
-    )
+    cutoff = df["work_hours_per_day"].median()
+    low_work = df.loc[df["work_hours_per_day"] < cutoff]
+    high_work = df.loc[df["work_hours_per_day"] >= cutoff]
 
-    fig = px.scatter(
-        d,
-        x="breaks_during_work",
-        y="job_satisfaction_score",
-        color="workload",
+    def _binned(sub: pd.DataFrame, q: int = 10) -> pd.DataFrame:
+        d = sub[["breaks_during_work", "job_satisfaction_score"]].dropna()
+        d["_b"] = pd.qcut(d["breaks_during_work"], q=q, duplicates="drop")
+        return (
+            d.groupby("_b", observed=True)
+            .agg(
+                breaks_during_work=("breaks_during_work", "mean"),
+                job_satisfaction_score=("job_satisfaction_score", "mean"),
+            )
+            .reset_index()
+        )
+
+    c_low = _binned(low_work)
+    c_high = _binned(high_work)
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=c_low["breaks_during_work"],
+            y=c_low["job_satisfaction_score"],
+            mode="lines+markers",
+            name="Below median work hours",
+            line=dict(color="#2563eb", width=3),
+            marker=dict(size=8),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=c_high["breaks_during_work"],
+            y=c_high["job_satisfaction_score"],
+            mode="lines+markers",
+            name="At/above median work hours",
+            line=dict(color="#ea580c", width=3),
+            marker=dict(size=8),
+        )
+    )
+    fig.update_layout(
         template=TEMPLATE,
         title="Q8: Breaks and satisfaction — does the effect depend on workload?",
-        opacity=0.65,
-        color_discrete_sequence=COLOR_SEQ,
-    )
-    fig.update_traces(marker=dict(size=7))
-
-    for label, col in [("Low work hours", "royalblue"), ("High work hours", "darkorange")]:
-        dd = d.loc[d["workload"] == label].sort_values("breaks_during_work")
-        if len(dd) >= 300:
-            x = dd["breaks_during_work"].to_numpy(dtype=float)
-            y = dd["job_satisfaction_score"].to_numpy(dtype=float)
-            sm = lowess(y, x, frac=0.25, return_sorted=True)
-            fig.add_trace(
-                go.Scatter(
-                    x=sm[:, 0],
-                    y=sm[:, 1],
-                    mode="lines",
-                    name=f"LOESS ({label})",
-                    line=dict(color=col, width=3),
-                )
-            )
-
-    fig.update_layout(
-        xaxis_title="Breaks during work",
-        yaxis_title="Job satisfaction score",
-        legend_title_text="Workload group",
+        xaxis_title="Mean breaks in bin",
+        yaxis_title="Mean job satisfaction",
         height=540,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
     return fig
 
 
 def plot_q9_gender_productivity(df: pd.DataFrame) -> go.Figure:
-    d = _sample_df(df, n=7000).copy()
-    if "perceived_minus_actual" not in d.columns:
-        d["perceived_minus_actual"] = d["perceived_productivity_score"] - d["actual_productivity_score"]
-
-    d["gap"] = d["perceived_minus_actual"].astype(float)
-
-    xs = np.linspace(
-        d["actual_productivity_score"].min(),
-        d["actual_productivity_score"].max(),
-        60,
-    )
-    x = d["actual_productivity_score"].astype(float).to_numpy()
-    y = d["perceived_productivity_score"].astype(float).to_numpy()
-    slope = np.cov(x, y, bias=True)[0, 1] / np.var(x)
-    intercept = y.mean() - slope * x.mean()
-    ys = intercept + slope * xs
-
-    fig = make_subplots(
-        rows=1,
-        cols=2,
-        subplot_titles=("Perception vs actual (scatter)", "Perceived-actual gap by gender"),
-        horizontal_spacing=0.08,
-    )
-
-    for gender, gdf in d.groupby("gender"):
-        fig.add_trace(
-            go.Scatter(
-                x=gdf["actual_productivity_score"],
-                y=gdf["perceived_productivity_score"],
-                mode="markers",
-                name=str(gender),
-                opacity=0.55,
-            ),
-            row=1,
-            col=1,
-        )
-    fig.add_trace(
-        go.Scatter(
-            x=xs, y=ys, mode="lines", name="Pooled linear fit", line=dict(color="black", width=3)
-        ),
-        row=1,
-        col=1,
-    )
-
-    for gender, gdf in d.groupby("gender"):
-        fig.add_trace(
-            go.Violin(
-                x=[str(gender)] * len(gdf),
-                y=gdf["gap"],
-                name=str(gender),
-                box_visible=True,
-                meanline_visible=True,
-                opacity=0.75,
-                showlegend=False,
-            ),
-            row=1,
-            col=2,
-        )
-
-    fig.update_layout(
-        template=TEMPLATE,
+    fig = px.box(
+        df,
+        x="gender",
+        y="perceived_minus_actual",
         title="Q9: Is the perceived-vs-actual productivity bias different by gender?",
-        height=580,
+        template=TEMPLATE,
+        color="gender",
+        color_discrete_sequence=COLOR_SEQ,
+        points="suspectedoutliers",
     )
-    fig.update_xaxes(title_text="Actual productivity (scatter)", row=1, col=1)
-    fig.update_yaxes(title_text="Perceived productivity (scatter)", row=1, col=1)
-    fig.update_xaxes(title_text="Gender", row=1, col=2)
-    fig.update_yaxes(title_text="Perceived minus actual (gap)", row=1, col=2)
+    fig.update_layout(
+        xaxis_title="Gender",
+        yaxis_title="Perceived − actual gap",
+        showlegend=False,
+        height=520,
+    )
     return fig
 
 
